@@ -89,24 +89,34 @@ for i in {1..30}; do
 done
 
 # 6. Start the tunnel and capture URL
-echo -e "${CYAN}Starting Cloudflare tunnel...${NC}"
-TUNNEL_LOG=$(mktemp)
-$CLOUDFLARED tunnel --url http://localhost:$PORT 2>"$TUNNEL_LOG" &
-TUNNEL_PID=$!
+if [ -n "$TUNNEL_DOMAIN" ]; then
+    # ── Named tunnel with custom domain ──
+    echo -e "${CYAN}Starting Cloudflare named tunnel → ${BOLD}${TUNNEL_DOMAIN}${NC}"
+    $CLOUDFLARED tunnel --hostname "$TUNNEL_DOMAIN" --url http://localhost:$PORT --no-autoupdate 2>/dev/null &
+    TUNNEL_PID=$!
+    TUNNEL_URL="https://${TUNNEL_DOMAIN}"
+    sleep 3
+else
+    # ── Quick tunnel (random URL) ──
+    echo -e "${CYAN}Starting Cloudflare quick tunnel...${NC}"
+    TUNNEL_LOG=$(mktemp)
+    $CLOUDFLARED tunnel --url http://localhost:$PORT 2>"$TUNNEL_LOG" &
+    TUNNEL_PID=$!
 
-# Wait for tunnel URL to appear in logs
-TUNNEL_URL=""
-for i in {1..20}; do
-    TUNNEL_URL=$(grep -oP 'https://[a-z0-9-]+\.trycloudflare\.com' "$TUNNEL_LOG" 2>/dev/null | head -1)
-    if [ -n "$TUNNEL_URL" ]; then
-        break
+    # Wait for tunnel URL to appear in logs
+    TUNNEL_URL=""
+    for i in {1..20}; do
+        TUNNEL_URL=$(grep -oP 'https://[a-z0-9-]+\.trycloudflare\.com' "$TUNNEL_LOG" 2>/dev/null | head -1)
+        if [ -n "$TUNNEL_URL" ]; then
+            break
+        fi
+        sleep 1
+    done
+
+    if [ -z "$TUNNEL_URL" ]; then
+        echo -e "${RED}✗ Could not detect tunnel URL. Check cloudflared output.${NC}"
+        TUNNEL_URL="(tunnel URL not detected)"
     fi
-    sleep 1
-done
-
-if [ -z "$TUNNEL_URL" ]; then
-    echo -e "${RED}✗ Could not detect tunnel URL. Check cloudflared output.${NC}"
-    TUNNEL_URL="(tunnel URL not detected)"
 fi
 
 FULL_URL="${TUNNEL_URL}/terminal"

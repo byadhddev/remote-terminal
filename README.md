@@ -25,6 +25,9 @@ bash setup.sh
 
 # With auth (recommended for remote access):
 AUTH_TOKEN=mysecret bash setup.sh
+
+# With your own domain (requires Cloudflare account + domain):
+TUNNEL_DOMAIN=terminal.yourdomain.com AUTH_TOKEN=mysecret bash setup.sh
 ```
 
 That's it. The script:
@@ -75,6 +78,31 @@ Authentication is **optional** and controlled by the `AUTH_TOKEN` environment va
 - `Authorization: Bearer <token>` header
 - `rt_token` cookie
 - `?token=<token>` query parameter
+
+## Custom Domain
+
+By default, `setup.sh` creates a **quick tunnel** with a random `*.trycloudflare.com` URL that changes every time. To use your own domain:
+
+### Prerequisites
+1. A domain with DNS managed by Cloudflare (free plan works)
+2. `cloudflared` logged in: `cloudflared login`
+3. A named tunnel created: `cloudflared tunnel create remote-terminal`
+4. A DNS CNAME record pointing your subdomain to the tunnel:
+   ```bash
+   cloudflared tunnel route dns remote-terminal terminal.yourdomain.com
+   ```
+
+### Usage
+```bash
+TUNNEL_DOMAIN=terminal.yourdomain.com bash setup.sh
+```
+
+This gives you a **permanent, memorable URL** — no more copying random URLs or scanning QR codes.
+
+| Variable | Behavior |
+|---|---|
+| Not set | Quick tunnel with random `*.trycloudflare.com` URL |
+| `TUNNEL_DOMAIN=terminal.example.com` | Named tunnel at your domain |
 
 ## Architecture
 
