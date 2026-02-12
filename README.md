@@ -1,0 +1,188 @@
+# Remote Terminal
+
+Access your local shell from anywhere — phone, tablet, or another computer — through a web-based terminal with full PTY support.
+
+![Architecture](https://img.shields.io/badge/stack-Next.js%20%2B%20Socket.io%20%2B%20node--pty-blue)
+![License](https://img.shields.io/badge/license-MIT-green)
+
+## Features
+
+- **Full terminal emulation** — xterm.js renders a real terminal with colors, cursor, scrollback, vim/nano support
+- **Persistent sessions** — lock your phone, switch apps, close the tab — your shell keeps running. Reconnect and pick up where you left off
+- **Multiple tabs** — run several shell sessions in parallel, switch between them
+- **Mobile-first UI** — on-screen modifier keys (ESC, TAB, ⇧TAB, CTRL, SHIFT, arrows), touch-optimized
+- **CTRL combos** — CTRL+C, CTRL+P, CTRL+Z and more, either from the button bar or tap CTRL then type on keyboard
+- **SHIFT support** — uppercase letters, shifted symbols, Shift+Tab, Shift+Arrow
+- **Cloudflare tunnel** — one command to expose securely to the internet (no port forwarding, no admin)
+- **Session replay** — reconnecting replays the last 50KB of output so you never lose context
+
+## Quick Start
+
+```bash
+# Clone and run — one command:
+bash setup.sh
+```
+
+That's it. The script:
+1. Installs npm dependencies
+2. Downloads `cloudflared` (if missing)
+3. Starts the server
+4. Opens a Cloudflare tunnel
+5. Prints the public URL — open it on your phone
+
+## Manual Setup
+
+```bash
+# 1. Install dependencies
+npm install
+
+# 2. Start the terminal server
+npm run dev
+
+# 3. (Optional) Expose to internet
+npm run tunnel
+# Or: ~/bin/cloudflared tunnel --url http://localhost:3000
+
+# 4. Open in browser
+# Local:  http://localhost:3000/terminal
+# Remote: https://<tunnel-url>/terminal
+```
+
+## Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  Browser (Phone/Laptop)                                         │
+│  ┌─────────────────────────────────────────────────────────┐    │
+│  │  xterm.js          — terminal emulator (renders output) │    │
+│  │  socket.io-client  — WebSocket connection               │    │
+│  │  Modifier key bar  — ESC, TAB, CTRL, SHIFT, arrows      │    │
+│  └─────────────────────┬───────────────────────────────────┘    │
+│                        │ WebSocket (wss://)                      │
+└────────────────────────┼────────────────────────────────────────┘
+                         │
+┌────────────────────────┼────────────────────────────────────────┐
+│  Cloudflare Tunnel     │  (optional — for remote access)        │
+│  HTTPS + WSS proxy     │                                        │
+└────────────────────────┼────────────────────────────────────────┘
+                         │
+┌────────────────────────┼────────────────────────────────────────┐
+│  Server (server.ts)    │  Node.js custom HTTP server            │
+│  ┌─────────────────────┴───────────────────────────────────┐    │
+│  │  Next.js            — serves the web UI pages           │    │
+│  │  socket.io          — WebSocket server at /api/terminal-ws│   │
+│  │  Session Manager    — creates/tracks/persists PTY sessions│   │
+│  │  node-pty           — spawns real bash PTY processes     │    │
+│  └─────────────────────────────────────────────────────────┘    │
+│                                                                  │
+│  Sessions persist across WebSocket disconnects.                  │
+│  Output is buffered (50KB) for replay on reconnect.              │
+│  Max 5 concurrent sessions.                                      │
+└──────────────────────────────────────────────────────────────────┘
+```
+
+## How It Works
+
+### 1. Custom Server (`server.ts`)
+
+A Node.js HTTP server wraps Next.js and adds a Socket.io WebSocket endpoint. When a client requests a new session:
+
+```
+Client → "create-session" → Server spawns bash via node-pty → PTY process
+Client → "attach" <session-id> → Server pipes PTY output to this socket
+Client → "input" <keystrokes> → Server writes to PTY stdin
+Client → "resize" {cols, rows} → Server resizes PTY
+```
+
+### 2. Persistent Sessions
+
+Sessions are **not tied to WebSocket connections**. When you disconnect:
+- The PTY process keeps running
+- Output is buffered in memory (last 50KB)
+- When you reconnect and `attach`, the buffer is replayed
+- Your shell state (current directory, running processes, env vars) is preserved
+
+### 3. Terminal UI (`TerminalClient.tsx`)
+
+The client uses [xterm.js](https://xtermjs.org/) — the same terminal emulator used by VS Code's integrated terminal. It handles:
+- Full ANSI escape sequences (colors, cursor positioning, alternate screen)
+- Mouse events, selection, clipboard
+- Scrollback buffer (10,000 lines)
+- Terminal resize (synced with server)
+
+### 4. Mobile Modifier Keys
+
+On-screen buttons send escape sequences directly:
+
+| Button | Sends | Use Case |
+|--------|-------|----------|
+| ESC | `\x1b` | Exit vim insert mode, cancel |
+| ⇧TAB | `\x1b[Z` | Copilot CLI mode switch |
+| TAB | `\t` | Autocomplete |
+| CTRL + letter | `\x01`-`\x1a` | CTRL+C (cancel), CTRL+P (copilot), etc. |
+| SHIFT + letter | Uppercase | Typing capital letters |
+| ↑ ↓ ← → | Arrow escape sequences | Navigate history, move cursor |
+
+CTRL and SHIFT are **sticky** — tap once to activate, then type a key. They auto-deactivate after one keypress.
+
+### 5. Cloudflare Tunnel
+
+[Cloudflare Tunnel](https://developers.cloudflare.com/cloudflare-one/connections/connect-apps/) creates an outbound-only connection from your machine to Cloudflare's edge:
+
+- **No inbound ports** — works behind firewalls, NAT, WSL2
+- **No admin required** — no `netsh`, no firewall rules
+- **HTTPS + WSS** — encrypted end-to-end
+- **Free** — no account needed for quick tunnels
+- **Reliable** — unlike localtunnel, no splash pages or POST failures
+
+## Project Structure
+
+```
+remote-terminal/
+├── server.ts                          # Custom HTTP + WebSocket server
+├── setup.sh                           # One-click setup & launch script
+├── package.json                       # Dependencies and scripts
+├── next.config.ts                     # Next.js configuration
+├── tsconfig.json                      # TypeScript configuration
+├── postcss.config.mjs                 # PostCSS + Tailwind
+├── public/
+│   └── xterm.css                      # xterm.js terminal styles
+└── src/app/
+    ├── layout.tsx                     # Root layout
+    ├── globals.css                    # Global styles
+    ├── page.tsx                       # Redirects to /terminal
+    └── terminal/
+        ├── page.tsx                   # Terminal page (server component)
+        └── TerminalClient.tsx         # Terminal UI (client component)
+```
+
+## Configuration
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `PORT` | `3000` | Server port |
+| `NODE_ENV` | `development` | Environment |
+
+Max concurrent sessions: 5 (configurable in `server.ts` → `MAX_SESSIONS`)
+Output buffer size: 50KB per session (configurable → `SCROLLBACK_BUFFER_SIZE`)
+
+## Security
+
+> ⚠️ **This is a local development tool.** It exposes a full shell — treat the tunnel URL like your SSH password.
+
+- No authentication built in (intentionally — it's a personal dev tool)
+- Sessions are process-scoped (die when server stops)
+- Cloudflare quick tunnels generate random URLs (unguessable)
+- Stop the tunnel to immediately cut off remote access
+
+For production use, add authentication middleware to the Socket.io connection handler.
+
+## Requirements
+
+- **Node.js** 18+ 
+- **Linux/macOS/WSL2** (node-pty requires a Unix-like environment)
+- **cloudflared** (auto-installed by `setup.sh`)
+
+## License
+
+MIT
