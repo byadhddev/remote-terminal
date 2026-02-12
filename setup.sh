@@ -31,7 +31,7 @@ echo -e "${GREEN}✓${NC} Node.js $(node -v)"
 # 2. Install npm dependencies
 if [ ! -d "node_modules" ]; then
     echo -e "${YELLOW}→${NC} Installing dependencies..."
-    npm install --silent
+    bun install --silent
 else
     echo -e "${GREEN}✓${NC} Dependencies installed"
 fi
@@ -67,7 +67,7 @@ fi
 # 5. Start the server
 echo ""
 echo -e "${CYAN}Starting server on port $PORT...${NC}"
-PORT=$PORT npx tsx server.ts &>/dev/null &
+PORT=$PORT bun run server.ts &>/dev/null &
 SERVER_PID=$!
 
 echo -n "Waiting for server"
@@ -128,10 +128,10 @@ echo ""
 echo "$FULL_URL" > "$DIR/.tunnel-url"
 
 # QR code for mobile — scan to open
-if npx -y qrcode-terminal --help &>/dev/null 2>&1; then
+if bunx qrcode-terminal --help &>/dev/null 2>&1; then
     echo -e "  ${BOLD}Scan to open on mobile:${NC}"
     echo ""
-    npx -y qrcode-terminal "$FULL_URL" --small 2>/dev/null
+    bunx qrcode-terminal "$FULL_URL" --small 2>/dev/null
     echo ""
 else
     echo -e "  ${YELLOW}Tip:${NC} Install qrcode-terminal for a scannable QR code"
