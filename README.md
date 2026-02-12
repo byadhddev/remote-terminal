@@ -15,12 +15,16 @@ Access your local shell from anywhere — phone, tablet, or another computer —
 - **SHIFT support** — uppercase letters, shifted symbols, Shift+Tab, Shift+Arrow
 - **Cloudflare tunnel** — one command to expose securely to the internet (no port forwarding, no admin)
 - **Session replay** — reconnecting replays the last 50KB of output so you never lose context
+- **Optional authentication** — protect with a token when exposed to the internet
 
 ## Quick Start
 
 ```bash
-# Clone and run — one command:
+# No auth (local use):
 bash setup.sh
+
+# With auth (recommended for remote access):
+AUTH_TOKEN=mysecret bash setup.sh
 ```
 
 That's it. The script:
@@ -49,6 +53,28 @@ npm run tunnel
 # Local:  http://localhost:3000/terminal
 # Remote: https://<tunnel-url>/terminal
 ```
+
+## Authentication
+
+Authentication is **optional** and controlled by the `AUTH_TOKEN` environment variable.
+
+| `AUTH_TOKEN` | Behavior |
+|---|---|
+| Not set / empty | No auth — anyone with the URL can access |
+| Set to any string | Token required — login page shown |
+
+### How it works
+
+1. **Enable**: `AUTH_TOKEN=mysecret bun run server.ts`
+2. **Login**: Browser shows a login page → enter the token → sets an HttpOnly cookie (30 days)
+3. **Direct URL**: Append `?token=mysecret` to skip the login page (sets cookie automatically)
+4. **WebSocket**: The client passes the token via cookie to authenticate socket.io connections
+5. **Disable**: Just don't set `AUTH_TOKEN`
+
+### Token sources (checked in order)
+- `Authorization: Bearer <token>` header
+- `rt_token` cookie
+- `?token=<token>` query parameter
 
 ## Architecture
 

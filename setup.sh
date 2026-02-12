@@ -64,10 +64,17 @@ if lsof -ti:$PORT &>/dev/null; then
     fi
 fi
 
-# 5. Start the server
+# 5. Auth setup
+if [ -n "$AUTH_TOKEN" ]; then
+    echo -e "${GREEN}✓${NC} Auth enabled (AUTH_TOKEN set)"
+else
+    echo -e "${DIM}  Auth disabled. Set AUTH_TOKEN=<secret> to enable.${NC}"
+fi
+
+# 6. Start the server
 echo ""
 echo -e "${CYAN}Starting server on port $PORT...${NC}"
-PORT=$PORT bun run server.ts &>/dev/null &
+AUTH_TOKEN="$AUTH_TOKEN" PORT=$PORT bun run server.ts &>/dev/null &
 SERVER_PID=$!
 
 echo -n "Waiting for server"

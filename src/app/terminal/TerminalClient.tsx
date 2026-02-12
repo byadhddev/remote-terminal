@@ -200,6 +200,10 @@ export default function TerminalClient() {
 
         const { term, fitAddon } = await initTerminal();
 
+        // Read auth token from cookie for WebSocket auth
+        const tokenMatch = document.cookie.match(/(?:^|;\s*)rt_token=([^;]*)/);
+        const authToken = tokenMatch ? decodeURIComponent(tokenMatch[1]) : undefined;
+
         const socket = io({
             path: '/api/terminal-ws',
             transports: ['websocket', 'polling'],
@@ -207,6 +211,7 @@ export default function TerminalClient() {
             reconnectionAttempts: Infinity,
             reconnectionDelay: 1000,
             reconnectionDelayMax: 5000,
+            ...(authToken ? { auth: { token: authToken } } : {}),
         });
         socketRef.current = socket;
 
