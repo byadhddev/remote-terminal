@@ -74,7 +74,7 @@ fi
 # 6. Start the server
 echo ""
 echo -e "${CYAN}Starting server on port $PORT...${NC}"
-AUTH_TOKEN="$AUTH_TOKEN" PORT=$PORT bun run server.ts &>/dev/null &
+AUTH_TOKEN="$AUTH_TOKEN" PORT=$PORT npx tsx server.ts &>/dev/null &
 SERVER_PID=$!
 
 echo -n "Waiting for server"

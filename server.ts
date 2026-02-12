@@ -19,10 +19,10 @@ const AUTH_COOKIE_NAME = 'rt_token';
 function checkToken(token: string | undefined | null): boolean {
     if (!AUTH_ENABLED) return true;
     if (!token) return false;
-    return crypto.timingSafeEqual(
-        Buffer.from(token),
-        Buffer.from(AUTH_TOKEN)
-    );
+    const a = Buffer.from(token);
+    const b = Buffer.from(AUTH_TOKEN);
+    if (a.length !== b.length) return false;
+    return crypto.timingSafeEqual(a, b);
 }
 
 function getTokenFromRequest(req: IncomingMessage): string | null {
