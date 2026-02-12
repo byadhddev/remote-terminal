@@ -28,7 +28,9 @@ That's it. The script:
 2. Downloads `cloudflared` (if missing)
 3. Starts the server
 4. Opens a Cloudflare tunnel
-5. Prints the public URL — open it on your phone
+5. **Displays a QR code** — scan with your phone camera to instantly open
+6. Shows Tunnel, LAN, and Local URLs
+7. Saves the URL to `.tunnel-url` for scripting
 
 ## Manual Setup
 
